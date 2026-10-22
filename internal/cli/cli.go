@@ -1,22 +1,18 @@
+// Package cli provides the command boundary. Only main calls os.Exit.
 package cli
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"os"
+
+	"github.com/voydz/mywhoosh-cli/internal/mywhoosh"
 )
 
+// Version is set by release builds using -ldflags -X.
 var Version = "dev"
 
 func Run(ctx context.Context, args []string, in io.Reader, out, stderr io.Writer) int {
-	if len(args) == 0 || args[0] == "help" || args[0] == "--help" {
-		fmt.Fprintln(out, "mywhoosh: auth login|status|logout; activities list|download; version")
-		return 0
-	}
-	if args[0] == "version" {
-		fmt.Fprintln(out, "mywhoosh", Version)
-		return 0
-	}
-	fmt.Fprintln(stderr, "usage_error: unknown command; use mywhoosh --help")
-	return 2
+	a := app{in: in, out: out, stderr: stderr, client: mywhoosh.New(), getenv: os.Getenv}
+	return a.run(ctx, args)
 }

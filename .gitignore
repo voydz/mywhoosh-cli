@@ -1,0 +1,6 @@
+/dist/
+/coverage.out
+*.test
+__pycache__/
+*.pyc
+/formatting.patch

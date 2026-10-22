@@ -1,0 +1,39 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+      - name: Test
+        run: go test ./... -v
+      - name: Race detector
+        run: go test -race ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build ./...
+      - name: Check formatting
+        if: always()
+        shell: bash
+        run: |
+          gofmt -w cmd internal 2>/dev/null || gofmt -w internal
+          git diff --exit-code > formatting.patch
+          rm formatting.patch
+      - name: Formatting patch
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formatting-${{ matrix.os }}
+          path: formatting.patch
+          if-no-files-found: ignore

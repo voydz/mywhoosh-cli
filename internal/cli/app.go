@@ -100,7 +100,7 @@ func (a *app) execute(ctx context.Context, args []string) error {
 	a.store = auth.Store{Dir: *dir}
 	if args[0] == "auth" {
 		args = args[1:]
-		if len(args) == 0 {
+		if len(args) == 0 || (args[0] != "login" && args[0] != "status" && args[0] != "logout") {
 			return usage()
 		}
 	}

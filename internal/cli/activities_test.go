@@ -38,7 +38,11 @@ func TestListSinglePagePreservesAllRecords(t *testing.T) {
 	calls := 0
 	c := fixture(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		var p struct { Page int `json:"page"`; Limit int `json:"limit"`; Sort string `json:"sortDate"` }
+		var p struct {
+			Page  int    `json:"page"`
+			Limit int    `json:"limit"`
+			Sort  string `json:"sortDate"`
+		}
 		_ = json.NewDecoder(r.Body).Decode(&p)
 		if r.URL.Path != "/v2/rider/profile/activities" || r.Header.Get("Authorization") != "Bearer cached-token" || p.Page != 2 || p.Limit != 1 || p.Sort != "DESC" {
 			t.Error("list request differs from contract")
@@ -47,9 +51,13 @@ func TestListSinglePagePreservesAllRecords(t *testing.T) {
 	})
 	code, out, stderr := invoke(t, c, dir, "", "activities", "--page", "2", "--limit", "1", "--format", "json")
 	var result struct {
-		Activities []struct { ID string `json:"id"`; StartedAt *string `json:"started_at"`; Downloadable bool `json:"downloadable"` } `json:"activities"`
-		Page int `json:"page"`
-		Next *int `json:"next_page"`
+		Activities []struct {
+			ID           string  `json:"id"`
+			StartedAt    *string `json:"started_at"`
+			Downloadable bool    `json:"downloadable"`
+		} `json:"activities"`
+		Page  int  `json:"page"`
+		Next  *int `json:"next_page"`
 		Known bool `json:"pagination_known"`
 	}
 	if code != 0 || stderr != "" || json.Unmarshal([]byte(out), &result) != nil || calls != 1 {
@@ -69,7 +77,9 @@ func TestDownloadResolvesExactIDAndPreservesOriginalBytes(t *testing.T) {
 	c := fixture(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v2/rider/profile/activities":
-			var p struct { Page int `json:"page"` }
+			var p struct {
+				Page int `json:"page"`
+			}
 			_ = json.NewDecoder(r.Body).Decode(&p)
 			pages = append(pages, p.Page)
 			if p.Page == 1 {
@@ -105,7 +115,11 @@ func TestDownloadResolvesExactIDAndPreservesOriginalBytes(t *testing.T) {
 	if err != nil || !bytes.Equal(got, data) {
 		t.Fatal("download changed original bytes")
 	}
-	var receipt struct { ActivityID string `json:"activity_id"`; Path string `json:"path"`; Bytes int `json:"bytes"` }
+	var receipt struct {
+		ActivityID string `json:"activity_id"`
+		Path       string `json:"path"`
+		Bytes      int    `json:"bytes"`
+	}
 	if json.Unmarshal([]byte(out), &receipt) != nil || receipt.ActivityID != "target" || receipt.Path != target || receipt.Bytes != len(data) {
 		t.Fatalf("receipt %s", out)
 	}
@@ -126,7 +140,7 @@ func TestReauthenticationIsBoundedAndStatusDoesNotRelogin(t *testing.T) {
 	t.Setenv("MYWHOOSH_EMAIL", "rider@example.test")
 	t.Setenv("MYWHOOSH_PASSWORD", "private-password")
 	for _, rejectAgain := range []bool{false, true} {
-		t.Run(map[bool]string{false:"recover", true:"reject_again"}[rejectAgain], func(t *testing.T) {
+		t.Run(map[bool]string{false: "recover", true: "reject_again"}[rejectAgain], func(t *testing.T) {
 			dir := savedSession(t)
 			loginCalls, listCalls := 0, 0
 			c := fixture(t, func(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +148,9 @@ func TestReauthenticationIsBoundedAndStatusDoesNotRelogin(t *testing.T) {
 					loginCalls++
 					var p map[string]any
 					_ = json.NewDecoder(r.Body).Decode(&p)
-					if p["DeviceId"] != "stable-device" { t.Error("device ID changed") }
+					if p["DeviceId"] != "stable-device" {
+						t.Error("device ID changed")
+					}
 					_, _ = w.Write([]byte(`{"Success":true,"AccessToken":"replacement-token","WhooshId":"00042"}`))
 					return
 				}
@@ -147,13 +163,17 @@ func TestReauthenticationIsBoundedAndStatusDoesNotRelogin(t *testing.T) {
 			})
 			code, out, stderr := invoke(t, c, dir, "", "activities", "list", "--format", "json")
 			want := 0
-			if rejectAgain { want = 3 }
+			if rejectAgain {
+				want = 3
+			}
 			if code != want || loginCalls != 1 || listCalls != 2 || strings.Contains(out+stderr, "replacement-token") || strings.Contains(out+stderr, "private-password") {
 				t.Fatalf("recovery: %d login=%d list=%d out=%q err=%q", code, loginCalls, listCalls, out, stderr)
 			}
 			before := loginCalls
 			_, _, _ = invoke(t, c, dir, "", "status", "--verify", "--format", "json")
-			if loginCalls != before { t.Fatal("status must not reauthenticate") }
+			if loginCalls != before {
+				t.Fatal("status must not reauthenticate")
+			}
 		})
 	}
 }

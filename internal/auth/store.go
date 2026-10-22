@@ -13,15 +13,15 @@ import (
 )
 
 type Session struct {
-	Version int `json:"version"`
-	Token string `json:"access_token"`
+	Version  int    `json:"version"`
+	Token    string `json:"access_token"`
 	WhooshID string `json:"whoosh_id"`
 	DeviceID string `json:"device_id"`
 }
 
 var ErrMissing = errors.New("session missing")
 
-type Store struct { Dir string }
+type Store struct{ Dir string }
 
 func configError() error {
 	return fault.New("invalid_config", 2, "session store is malformed, inaccessible, symlinked or insecure; use a private directory (0700) and session file (0600)")

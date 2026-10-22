@@ -32,15 +32,19 @@ Credentials: MYWHOOSH_EMAIL and MYWHOOSH_PASSWORD; no .env files are loaded.
 `
 
 type app struct {
-	in io.Reader
-	out io.Writer
+	in     io.Reader
+	out    io.Writer
 	stderr io.Writer
 	client *mywhoosh.Client
 	getenv func(string) string
-	store auth.Store
+	store  auth.Store
+	sessionLoaded bool
+	reauthenticated bool
 }
 
-func usage() error { return fault.New("usage_error", 2, "invalid command or options; use mywhoosh --help") }
+func usage() error {
+	return fault.New("usage_error", 2, "invalid command or options; use mywhoosh --help")
+}
 
 func flags(name string) *flag.FlagSet {
 	f := flag.NewFlagSet(name, flag.ContinueOnError)
@@ -99,6 +103,8 @@ func (a *app) execute(ctx context.Context, args []string) error {
 		}
 	}
 	switch args[0] {
+	case "activities":
+		return a.activities(ctx, args[1:])
 	case "login":
 		return a.login(ctx, args[1:])
 	case "status":
@@ -141,20 +147,30 @@ func (a *app) status(ctx context.Context, args []string) error {
 	if present {
 		state = "present"
 	}
+	verification := "not_checked"
+	var verifyErr error
 	if *verify {
-		// Online verification is wired with the activity-list slice.
 		if !present {
-			return mywhoosh.ErrUnauthorized
+			verification, verifyErr = "missing", mywhoosh.ErrUnauthorized
+		} else {
+			a.client.Session = s
+			_, verifyErr = a.client.List(ctx, 1, 1)
+			verification = "valid"
+			if errors.Is(verifyErr, mywhoosh.ErrUnauthorized) {
+				verification = "rejected"
+			} else if verifyErr != nil {
+				verification = "unknown"
+			}
 		}
-		a.client.Session = s
-		return fault.New("verification_unknown", 1, "online verification is not available")
 	}
 	if *format == "json" {
-		return a.document(struct {
+		err = a.document(struct {
 			SessionPresent bool `json:"session_present"`
 			Verification string `json:"verification"`
-		}{present, "not_checked"})
+		}{present, verification})
+	} else {
+		_, err = fmt.Fprintln(a.out, "Local session:", state, "— verification:", verification)
 	}
-	_, err = fmt.Fprintln(a.out, "Local session:", state, "(not verified)")
-	return err
+	if err != nil { return err }
+	return verifyErr
 }

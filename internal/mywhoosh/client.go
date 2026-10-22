@@ -97,9 +97,6 @@ func statusError(status int) error {
 	if status == http.StatusUnauthorized {
 		return ErrUnauthorized
 	}
-	if status == http.StatusNotFound {
-		return fault.New("not_found", 4, "requested activity or file was not found")
-	}
 	if status == http.StatusTooManyRequests {
 		return fault.New("rate_limited", 1, "MyWhoosh rate limit reached; retry later")
 	}

@@ -25,7 +25,15 @@ func (a *app) login(ctx context.Context, args []string) error {
 	}
 	password := a.getenv("MYWHOOSH_PASSWORD")
 	input, isFile := a.in.(*os.File)
-	interactive := isFile && term.IsTerminal(int(input.Fd()))
+	isTerminal := a.isTerminal
+	if isTerminal == nil {
+		isTerminal = term.IsTerminal
+	}
+	readPassword := a.readPassword
+	if readPassword == nil {
+		readPassword = term.ReadPassword
+	}
+	interactive := isFile && isTerminal(int(input.Fd()))
 	reader := bufio.NewReader(io.LimitReader(a.in, 4097))
 	if *email == "" && interactive {
 		fmt.Fprint(a.stderr, "Email: ")
@@ -36,14 +44,14 @@ func (a *app) login(ctx context.Context, args []string) error {
 		*email = strings.TrimSpace(line)
 	}
 	if *stdin {
-		line, err := io.ReadAll(io.LimitReader(a.in, 4097))
+		line, err := io.ReadAll(reader)
 		if err != nil || len(line) > 4096 {
 			return fault.New("credentials_required", 3, "cannot read password from stdin (maximum 4096 bytes)")
 		}
 		password = strings.TrimSuffix(strings.TrimSuffix(string(line), "\n"), "\r")
 	} else if password == "" && interactive {
 		fmt.Fprint(a.stderr, "Password: ")
-		b, err := term.ReadPassword(int(input.Fd()))
+		b, err := readPassword(int(input.Fd()))
 		fmt.Fprintln(a.stderr)
 		if err != nil {
 			return fault.New("credentials_required", 3, "cannot read hidden password; use --password-stdin or protected environment variables")

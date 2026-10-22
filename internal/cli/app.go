@@ -37,6 +37,8 @@ type app struct {
 	stderr          io.Writer
 	client          *mywhoosh.Client
 	getenv          func(string) string
+	isTerminal      func(int) bool
+	readPassword    func(int) ([]byte, error)
 	store           auth.Store
 	sessionLoaded   bool
 	reauthenticated bool

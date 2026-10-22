@@ -189,7 +189,7 @@ func TestTransportRejectsCredentialRedirects(t *testing.T) {
 }
 
 func TestTransportStatusErrorsAndCancellation(t *testing.T) {
-	for _, status := range []int{401, 429, 500, 503} {
+	for _, status := range []int{401, 404, 429, 500, 503} {
 		c := serverClient(t, func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(status)
 			_, _ = w.Write([]byte("secret body"))

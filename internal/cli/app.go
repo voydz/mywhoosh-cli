@@ -32,13 +32,13 @@ Credentials: MYWHOOSH_EMAIL and MYWHOOSH_PASSWORD; no .env files are loaded.
 `
 
 type app struct {
-	in     io.Reader
-	out    io.Writer
-	stderr io.Writer
-	client *mywhoosh.Client
-	getenv func(string) string
-	store  auth.Store
-	sessionLoaded bool
+	in              io.Reader
+	out             io.Writer
+	stderr          io.Writer
+	client          *mywhoosh.Client
+	getenv          func(string) string
+	store           auth.Store
+	sessionLoaded   bool
 	reauthenticated bool
 }
 
@@ -165,12 +165,14 @@ func (a *app) status(ctx context.Context, args []string) error {
 	}
 	if *format == "json" {
 		err = a.document(struct {
-			SessionPresent bool `json:"session_present"`
-			Verification string `json:"verification"`
+			SessionPresent bool   `json:"session_present"`
+			Verification   string `json:"verification"`
 		}{present, verification})
 	} else {
 		_, err = fmt.Fprintln(a.out, "Local session:", state, "— verification:", verification)
 	}
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	return verifyErr
 }

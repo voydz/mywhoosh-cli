@@ -41,7 +41,9 @@ func TestParsePageEnvelopesAndUnknownPagination(t *testing.T) {
 	}
 	for _, raw := range []string{`[]`, `{"data":[]}`, `{"data":{"results":[]}}`} {
 		p, err := parsePage(json.RawMessage(raw), 1)
-		if err != nil || !p.PaginationKnown || p.NextPage != nil || p.Activities == nil { t.Fatalf("empty: %+v %v", p, err) }
+		if err != nil || !p.PaginationKnown || p.NextPage != nil || p.Activities == nil {
+			t.Fatalf("empty: %+v %v", p, err)
+		}
 	}
 }
 
@@ -57,14 +59,18 @@ func TestParseRejectsMalformedResponsesAndInconsistentPagination(t *testing.T) {
 		`{"data":{"results":[{"id":"a"}],"nextPage":3}}`,
 		`{"data":{"results":[{"id":"a"}],"hasNext":null}}`,
 	} {
-		if _, err := parsePage(json.RawMessage(raw), 1); err == nil { t.Errorf("accepted malformed response %s", raw) }
+		if _, err := parsePage(json.RawMessage(raw), 1); err == nil {
+			t.Errorf("accepted malformed response %s", raw)
+		}
 	}
 }
 
 func TestPaginationMetadata(t *testing.T) {
 	for _, fields := range []string{`"totalPages":2`, `"total_pages":"2"`, `"hasNext":true`, `"hasNextPage":true`, `"nextPage":2`} {
 		p, err := parsePage(json.RawMessage(`{"data":{"results":[{"id":"a"}],`+fields+`}}`), 1)
-		if err != nil || !p.PaginationKnown || p.NextPage == nil || *p.NextPage != 2 { t.Fatalf("metadata %s: %+v %v", fields, p, err) }
+		if err != nil || !p.PaginationKnown || p.NextPage == nil || *p.NextPage != 2 {
+			t.Fatalf("metadata %s: %+v %v", fields, p, err)
+		}
 	}
 }
 
@@ -75,21 +81,38 @@ func TestResolveConfirmsEndOrReportsLimitsAndRepeatedPages(t *testing.T) {
 			c := serverClient(t, func(w http.ResponseWriter, r *http.Request) {
 				calls++
 				switch kind {
-				case "end": _, _ = w.Write([]byte(`{"data":{"results":[{"id":"other"}],"hasNext":false}}`))
+				case "end":
+					_, _ = w.Write([]byte(`{"data":{"results":[{"id":"other"}],"hasNext":false}}`))
 				case "unknown_end":
-					if calls == 1 { _, _ = w.Write([]byte(`[{"id":"other"}]`)) } else { _, _ = w.Write([]byte(`[]`)) }
-				case "limit": _, _ = fmt.Fprintf(w, `[{"id":"%d"}]`, calls)
-				case "repeated": _, _ = w.Write([]byte(`[{"id":"same"}]`))
-				case "missing_file": _, _ = w.Write([]byte(`[{"id":"target"}]`))
-				case "overlap": _, _ = fmt.Fprintf(w, `[{"id":"same"},{"id":"%d"}]`, calls)
+					if calls == 1 {
+						_, _ = w.Write([]byte(`[{"id":"other"}]`))
+					} else {
+						_, _ = w.Write([]byte(`[]`))
+					}
+				case "limit":
+					_, _ = fmt.Fprintf(w, `[{"id":"%d"}]`, calls)
+				case "repeated":
+					_, _ = w.Write([]byte(`[{"id":"same"}]`))
+				case "missing_file":
+					_, _ = w.Write([]byte(`[{"id":"target"}]`))
+				case "overlap":
+					_, _ = fmt.Fprintf(w, `[{"id":"same"},{"id":"%d"}]`, calls)
 				}
 			})
 			_, err := c.Resolve(context.Background(), "target")
 			wantCode, wantCalls := 4, 1
-			if kind == "unknown_end" { wantCalls = 2 }
-			if kind == "limit" { wantCode, wantCalls = 6, 100 }
-			if kind == "repeated" || kind == "overlap" { wantCode, wantCalls = 1, 2 }
-			if fault.Exit(err) != wantCode || calls != wantCalls { t.Fatalf("resolve %s: calls=%d err=%v", kind, calls, err) }
+			if kind == "unknown_end" {
+				wantCalls = 2
+			}
+			if kind == "limit" {
+				wantCode, wantCalls = 6, 100
+			}
+			if kind == "repeated" || kind == "overlap" {
+				wantCode, wantCalls = 1, 2
+			}
+			if fault.Exit(err) != wantCode || calls != wantCalls {
+				t.Fatalf("resolve %s: calls=%d err=%v", kind, calls, err)
+			}
 		})
 	}
 }
@@ -97,19 +120,27 @@ func TestResolveConfirmsEndOrReportsLimitsAndRepeatedPages(t *testing.T) {
 func TestPaginationUnionHasNoLostIDs(t *testing.T) {
 	seen := map[string]bool{}
 	c := serverClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var p struct { Page int `json:"page"` }
+		var p struct {
+			Page int `json:"page"`
+		}
 		_ = json.NewDecoder(r.Body).Decode(&p)
 		_, _ = fmt.Fprintf(w, `{"data":{"results":[{"id":"%d-a"},{"id":"%d-b"}],"page":%d,"totalPages":3}}`, p.Page, p.Page, p.Page)
 	})
 	for page := 1; page <= 3; page++ {
 		p, err := c.List(context.Background(), page, 1)
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		for _, a := range p.Activities {
-			if seen[a.ID] { t.Fatal("duplicate ID") }
+			if seen[a.ID] {
+				t.Fatal("duplicate ID")
+			}
 			seen[a.ID] = true
 		}
 	}
-	if len(seen) != 6 { t.Fatalf("lost records: %v", seen) }
+	if len(seen) != 6 {
+		t.Fatalf("lost records: %v", seen)
+	}
 }
 
 func TestLoginRejectedMalformedAndSanitized(t *testing.T) {
@@ -121,11 +152,17 @@ func TestLoginRejectedMalformedAndSanitized(t *testing.T) {
 	} {
 		c := serverClient(t, func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(body)) })
 		_, err := c.Login(context.Background(), "email", "private-password", "device")
-		if err == nil || strings.Contains(err.Error(), "private-password") || strings.Contains(err.Error(), "private-token") { t.Fatalf("unsafe login error %v", err) }
+		if err == nil || strings.Contains(err.Error(), "private-password") || strings.Contains(err.Error(), "private-token") {
+			t.Fatalf("unsafe login error %v", err)
+		}
 	}
-	c := serverClient(t, func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"Success":true,"AccessToken":"t","WhooshId":9007199254740993}`)) })
+	c := serverClient(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"Success":true,"AccessToken":"t","WhooshId":9007199254740993}`))
+	})
 	s, err := c.Login(context.Background(), "email", "password", "device")
-	if err != nil || s.WhooshID != "9007199254740993" { t.Fatalf("numeric ID rounded: %+v %v", s, err) }
+	if err != nil || s.WhooshID != "9007199254740993" {
+		t.Fatalf("numeric ID rounded: %+v %v", s, err)
+	}
 }
 
 func TestTransportRejectsCredentialRedirects(t *testing.T) {
@@ -133,32 +170,52 @@ func TestTransportRejectsCredentialRedirects(t *testing.T) {
 	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { leaked = true; w.WriteHeader(200) }))
 	defer target.Close()
 	for _, status := range []int{301, 302, 307, 308} {
-		c := serverClient(t, func(w http.ResponseWriter, r *http.Request) { w.Header().Set("Location", target.URL+"/?signature=secret"); w.WriteHeader(status) })
+		c := serverClient(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Location", target.URL+"/?signature=secret")
+			w.WriteHeader(status)
+		})
 		_, err := c.Login(context.Background(), "private-email", "private-password", "device")
-		if err == nil || strings.Contains(err.Error(), "secret") { t.Fatalf("redirect: %v", err) }
+		if err == nil || strings.Contains(err.Error(), "secret") {
+			t.Fatalf("redirect: %v", err)
+		}
 		_, err = c.List(context.Background(), 1, 20)
-		if err == nil { t.Fatal("authenticated redirect accepted") }
+		if err == nil {
+			t.Fatal("authenticated redirect accepted")
+		}
 	}
-	if leaked { t.Fatal("API followed a credential redirect") }
+	if leaked {
+		t.Fatal("API followed a credential redirect")
+	}
 }
 
 func TestTransportStatusErrorsAndCancellation(t *testing.T) {
 	for _, status := range []int{401, 429, 500, 503} {
-		c := serverClient(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status); _, _ = w.Write([]byte("secret body")) })
+		c := serverClient(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte("secret body"))
+		})
 		_, err := c.List(context.Background(), 1, 20)
 		want := 1
-		if status == 401 { want = 3 }
-		if err == nil || fault.Exit(err) != want || strings.Contains(err.Error(), "secret") { t.Fatalf("HTTP %d: %v", status, err) }
+		if status == 401 {
+			want = 3
+		}
+		if err == nil || fault.Exit(err) != want || strings.Contains(err.Error(), "secret") {
+			t.Fatalf("HTTP %d: %v", status, err)
+		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	c := serverClient(t, func(w http.ResponseWriter, r *http.Request) { t.Error("cancelled request reached server") })
 	cancel()
 	_, err := c.List(ctx, 1, 20)
-	if err == nil || !strings.Contains(err.Error(), "cancelled") { t.Fatalf("cancellation %v", err) }
+	if err == nil || !strings.Contains(err.Error(), "cancelled") {
+		t.Fatalf("cancellation %v", err)
+	}
 	c.HTTP.Timeout = time.Millisecond
 	c.ActivitiesURL = "https://127.0.0.1:1/private?signature=secret"
 	_, err = c.List(context.Background(), 1, 20)
-	if err == nil || strings.Contains(err.Error(), "secret") { t.Fatalf("transport leaked URL: %v", err) }
+	if err == nil || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("transport leaked URL: %v", err)
+	}
 }
 
 func structuralFIT() []byte {
@@ -175,31 +232,53 @@ func TestDownloadRejectsUnsafeURLsAndInvalidFIT(t *testing.T) {
 			var base string
 			c := serverClient(t, func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/download" {
-					u := base+"/signed?signature=private-signature"
-					if kind == "http" { u = "http://example.test/private" }
-					if kind == "userinfo" { u = "https://user:private-password@example.test/file" }
-					if kind == "error_body" { _, _ = w.Write([]byte(`{"error":true,"message":"private-signature"}`)); return }
-					_ = json.NewEncoder(w).Encode(map[string]any{"data":u})
+					u := base + "/signed?signature=private-signature"
+					if kind == "http" {
+						u = "http://example.test/private"
+					}
+					if kind == "userinfo" {
+						u = "https://user:private-password@example.test/file"
+					}
+					if kind == "error_body" {
+						_, _ = w.Write([]byte(`{"error":true,"message":"private-signature"}`))
+						return
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{"data": u})
 					return
 				}
-				if r.Header.Get("Authorization") != "" { t.Error("download credential leak") }
+				if r.Header.Get("Authorization") != "" {
+					t.Error("download credential leak")
+				}
 				b := structuralFIT()
 				switch kind {
-				case "html": b = []byte("<html>private-signature</html>")
-				case "xml": b = []byte("<?xml?><Error>private-signature</Error>")
-				case "truncated": b = b[:19]
-				case "trailing": b = append(b, 0)
-				case "oversize": w.Header().Set("Content-Length", "67108865"); return
-				case "declared_oversize": binary.LittleEndian.PutUint32(b[4:8], MaxFITSize)
-				case "header_only": b = b[:14]; binary.LittleEndian.PutUint32(b[4:8], 0)
-				case "expired": w.WriteHeader(403); b = []byte("private-signature")
+				case "html":
+					b = []byte("<html>private-signature</html>")
+				case "xml":
+					b = []byte("<?xml?><Error>private-signature</Error>")
+				case "truncated":
+					b = b[:19]
+				case "trailing":
+					b = append(b, 0)
+				case "oversize":
+					w.Header().Set("Content-Length", "67108865")
+					return
+				case "declared_oversize":
+					binary.LittleEndian.PutUint32(b[4:8], MaxFITSize)
+				case "header_only":
+					b = b[:14]
+					binary.LittleEndian.PutUint32(b[4:8], 0)
+				case "expired":
+					w.WriteHeader(403)
+					b = []byte("private-signature")
 				}
 				_, _ = w.Write(b)
 			})
 			base = strings.TrimSuffix(c.DownloadURL, "/download")
 			var out bytes.Buffer
-			_, err := c.Download(context.Background(), Activity{ID:"a", FileRef:"f"}, &out)
-			if err == nil || strings.Contains(err.Error(), "private-signature") || strings.Contains(err.Error(), "private-password") { t.Fatalf("unsafe download %s: %v", kind, err) }
+			_, err := c.Download(context.Background(), Activity{ID: "a", FileRef: "f"}, &out)
+			if err == nil || strings.Contains(err.Error(), "private-signature") || strings.Contains(err.Error(), "private-password") {
+				t.Fatalf("unsafe download %s: %v", kind, err)
+			}
 		})
 	}
 }
@@ -207,19 +286,28 @@ func TestDownloadRejectsUnsafeURLsAndInvalidFIT(t *testing.T) {
 func TestDownloadRedirectIsCredentialFree(t *testing.T) {
 	data := structuralFIT()
 	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for _, h := range []string{"Authorization", "Cookie", "Referer"} { if r.Header.Get(h) != "" { t.Errorf("redirect leaked %s", h) } }
+		for _, h := range []string{"Authorization", "Cookie", "Referer"} {
+			if r.Header.Get(h) != "" {
+				t.Errorf("redirect leaked %s", h)
+			}
+		}
 		_, _ = w.Write(data)
 	}))
 	defer target.Close()
 	var base string
 	c := serverClient(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/download" { _ = json.NewEncoder(w).Encode(map[string]string{"data":base+"/redirect?signature=secret"}); return }
+		if r.URL.Path == "/download" {
+			_ = json.NewEncoder(w).Encode(map[string]string{"data": base + "/redirect?signature=secret"})
+			return
+		}
 		w.Header().Set("Location", target.URL+"/final")
 		w.WriteHeader(302)
 	})
 	base = strings.TrimSuffix(c.DownloadURL, "/download")
 	// Both fixtures use httptest's shared testing certificate.
 	var out bytes.Buffer
-	n, err := c.Download(context.Background(), Activity{ID:"a", FileRef:"f"}, &out)
-	if err != nil || n != int64(len(data)) || !bytes.Equal(out.Bytes(), data) { t.Fatalf("redirect download %d %v", n, err) }
+	n, err := c.Download(context.Background(), Activity{ID: "a", FileRef: "f"}, &out)
+	if err != nil || n != int64(len(data)) || !bytes.Equal(out.Bytes(), data) {
+		t.Fatalf("redirect download %d %v", n, err)
+	}
 }

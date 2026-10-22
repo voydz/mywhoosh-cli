@@ -21,8 +21,16 @@ jobs:
         run: go test -race ./...
       - name: Vet
         run: go vet ./...
-      - name: Build
-        run: go build ./...
+      - name: Build and smoke
+        run: |
+          mkdir -p dist
+          go build -trimpath -o dist/mywhoosh ./cmd/mywhoosh
+          dist/mywhoosh --help
+          dist/mywhoosh version
+      - name: Cross-build
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o dist/mywhoosh-linux-arm64 ./cmd/mywhoosh
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -o dist/mywhoosh-darwin-arm64 ./cmd/mywhoosh
       - name: Check formatting
         if: always()
         shell: bash

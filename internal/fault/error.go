@@ -4,8 +4,8 @@ package fault
 import "errors"
 
 type Error struct {
-	Code string
-	Exit int
+	Code    string
+	Exit    int
 	Message string
 }
 

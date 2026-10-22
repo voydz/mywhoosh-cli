@@ -18,29 +18,29 @@ import (
 )
 
 const (
-	loginURL = "https://services.mywhoosh.com/http-service/api/login"
+	loginURL      = "https://services.mywhoosh.com/http-service/api/login"
 	activitiesURL = "https://service14.mywhoosh.com/v2/rider/profile/activities"
-	downloadURL = "https://service14.mywhoosh.com/v2/rider/profile/download-activity-file"
+	downloadURL   = "https://service14.mywhoosh.com/v2/rider/profile/download-activity-file"
 )
 
 // Endpoint/client fields allow internal fixture injection only. The executable
 // never accepts arbitrary endpoints or disables certificate verification.
 type Client struct {
-	HTTP *http.Client
-	DownloadHTTP *http.Client
-	LoginURL string
+	HTTP          *http.Client
+	DownloadHTTP  *http.Client
+	LoginURL      string
 	ActivitiesURL string
-	DownloadURL string
-	Session auth.Session
+	DownloadURL   string
+	Session       auth.Session
 }
 
 func New() *Client {
 	return &Client{
-		HTTP: &http.Client{Timeout: 60 * time.Second},
-		DownloadHTTP: &http.Client{Timeout: 120 * time.Second},
-		LoginURL: loginURL,
+		HTTP:          &http.Client{Timeout: 60 * time.Second},
+		DownloadHTTP:  &http.Client{Timeout: 120 * time.Second},
+		LoginURL:      loginURL,
 		ActivitiesURL: activitiesURL,
-		DownloadURL: downloadURL,
+		DownloadURL:   downloadURL,
 	}
 }
 
@@ -56,17 +56,17 @@ func NewDeviceID() string {
 
 func (c *Client) Login(ctx context.Context, email, password, deviceID string) (auth.Session, error) {
 	var response struct {
-		Success bool `json:"Success"`
-		AccessToken string `json:"AccessToken"`
-		WhooshID json.RawMessage `json:"WhooshId"`
+		Success     bool            `json:"Success"`
+		AccessToken string          `json:"AccessToken"`
+		WhooshID    json.RawMessage `json:"WhooshId"`
 	}
 	payload := struct {
-		Username string `json:"Username"`
-		Password string `json:"Password"`
-		Platform string `json:"Platform"`
-		Action int `json:"Action"`
+		Username      string `json:"Username"`
+		Password      string `json:"Password"`
+		Platform      string `json:"Platform"`
+		Action        int    `json:"Action"`
 		CorrelationID string `json:"CorrelationId"`
-		DeviceID string `json:"DeviceId"`
+		DeviceID      string `json:"DeviceId"`
 		Authorization string `json:"Authorization"`
 	}{email, password, "Android", 1001, NewDeviceID(), deviceID, ""}
 	if err := c.post(ctx, c.LoginURL, "", payload, &response); err != nil {

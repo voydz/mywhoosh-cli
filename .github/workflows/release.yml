@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable release tag to build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            platform: macos-arm64
+          - runner: macos-15-intel
+            platform: macos-x86_64
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+          - runner: ubuntu-24.04-arm
+            platform: linux-aarch64
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            printf 'Invalid stable release tag\n' >&2
+            exit 2
+          fi
+          printf 'VERSION=%s\n' "${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+      - name: Check and package
+        run: |
+          make check VERSION="$VERSION"
+          python3 -m unittest discover -s packaging -v
+          make package VERSION="$VERSION"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ matrix.platform }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish archives and Homebrew formula
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+      - name: Verify and render release artifacts
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          python3 packaging/verify_release.py --version "${RELEASE_TAG#v}" --directory dist
+          python3 packaging/render_formula.py --version "${RELEASE_TAG#v}" --checksums-dir dist > dist/mywhoosh-cli.rb
+      - name: Upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" dist/*.tar.gz dist/*.sha256 dist/mywhoosh-cli.rb --repo "$GITHUB_REPOSITORY"

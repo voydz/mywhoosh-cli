@@ -16,7 +16,7 @@ def render(version, checksums):
     base = f"https://github.com/voydz/mywhoosh-cli/releases/download/v{version}"
     lines = [
         "class MywhooshCli < Formula",
-        '  desc "Download original MyWhoosh activity FIT files from the command line"',
+        '  desc "Download original MyWhoosh activity FIT files from the command-line"',
         '  homepage "https://github.com/voydz/mywhoosh-cli"',
         '  license "MIT"',
     ]

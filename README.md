@@ -1,6 +1,6 @@
 # mywhoosh-cli
 
-A small standalone CLI for MyWhoosh: read profile and training data, list completed activities, inspect FIT summaries, and download an activity's **original FIT bytes**. One binary, one account, no Garmin credentials, background jobs, device spoofing or FIT rewriting.
+A small standalone CLI for MyWhoosh: read profile and training data, list completed activities, inspect recorded FIT summaries or GPX points, and download an activity's **original FIT or GPX bytes**. One binary, one account, no Garmin credentials, background jobs, device spoofing or file conversion.
 
 > **Compatibility:** MyWhoosh has no public API. This implementation uses private endpoints and fixture tests; responses and availability may change without notice. This project is not affiliated with MyWhoosh.
 
@@ -32,8 +32,9 @@ mywhoosh profile --format json                      # source-reported rider prof
 mywhoosh stats --format json                        # source-reported training statistics
 mywhoosh activities                                 # one page, table
 mywhoosh activities --page 2 --limit 20 --format json
-mywhoosh activities get ACTIVITY_ID --format json   # recorded FIT sessions and laps
+mywhoosh activities get ACTIVITY_ID --format json   # detects FIT summaries or GPX points
 mywhoosh activities download ACTIVITY_ID -o ride.fit
+mywhoosh activities download ACTIVITY_ID --file-format gpx -o ride.gpx
 mywhoosh activities download ACTIVITY_ID --output ride.fit --overwrite --format json
 mywhoosh logout                                    # local session removal only
 ```
@@ -84,17 +85,25 @@ Download and `activities get` walk pages to resolve the **exact activity ID** to
 
 Stats report source best-power durations and maximum power in watts, maximum heart rate in bpm, total and current-week distance in km, and source-reported average power/heart rate (the averaging period is not established). `total_ride_time_reported_unknown_unit`, `total_elevation_reported_unknown_unit`, and `total_calories_burn_reported_unknown_unit` preserve MyWhoosh's raw `TotalRideTime`, `TotalElevation`, and `TotalCaloriesBurn`; their units are not established here. Totals need not equal the sum of currently listed activities. Only selected coaching fields are exposed; the raw account response and unrelated personal fields are never printed.
 
-`activities get ID` retrieves the original FIT in memory and decodes its recorded session and lap messages. JSON includes `activity_id`, list-derived `name`, `source: "fit"`, and `sessions` and `laps` arrays. Fields carry their units: time in seconds, distance and ascent/descent in meters, power in watts, heart rate in bpm, cadence in rpm, and calories in kcal. Timer time excludes pauses; elapsed time includes them. Values come from the FIT messages, not activity-list approximations or derived physiological metrics. No per-record samples are emitted. Missing or FIT-invalid fields are JSON `null` (a dash in table output); actual zeros remain zero. Empty arrays mean no such messages were recorded. Fields may be unavailable even when an activity exists.
+`activities get ID` detects the original file format in memory. For FIT, it decodes recorded session and lap messages. FIT JSON includes `activity_id`, list-derived `name`, `source: "fit"`, and `sessions` and `laps` arrays. Fields carry their units: time in seconds, distance and ascent/descent in meters, power in watts, heart rate in bpm, cadence in rpm, and calories in kcal. Timer time excludes pauses; elapsed time includes them. Values come from the FIT messages, not activity-list approximations or derived physiological metrics. No per-record samples are emitted. Missing or FIT-invalid fields are JSON `null` (a dash in table output); actual zeros remain zero. Empty arrays mean no such messages were recorded. Fields may be unavailable even when an activity exists.
 
-Details enforce the 64 MiB file limit, validate FIT checksums and reject malformed input. Parsing is limited to one million messages and 10,000 combined sessions/laps; no temporary FIT file is written. `activities download` retains its separate structural-only screening and byte-exact output contract below.
+Details enforce the 64 MiB file limit and reject malformed input. FIT parsing validates checksums and is limited to one million messages and 10,000 combined sessions/laps; no temporary file is written. FIT downloads retain their separate structural-only screening and byte-exact output contract below.
 
-## Safe original FIT downloads
+### Recorded GPX points
 
-Choose an explicit path; filenames are never derived from an activity name or ID. The parent directory must already exist. Files are streamed into a private temporary file beside the destination and published only after a complete successful download. Publication cannot clobber an existing target unless `--overwrite` is explicit; overwrites are atomic. Failure cleans up the temporary file and leaves the previous destination untouched. Output files are 0600. FIT bytes are never printed to stdout.
+GPX results contain `activity_id`, list-derived `name`, `source: "gpx"`, empty `sessions`/`laps`, and `tracks`. Each track has an optional recorded `name` and ordered `segments`; each segment has ordered `points`. Point fields are `timestamp` (zoned source time normalized to UTC), `latitude_degrees`, `longitude_degrees`, `elevation_meters`, `power_watts`, `heart_rate_bpm` and `cadence_rpm`. Absent optional values are `null`; recorded zero stays zero. Missing timestamps remain null; present malformed or unzoned timestamps fail. Segments remain separate and are not manufactured FIT laps.
+
+The supported dialect is GPX 1.1 in UTF-8 with or without a BOM: `trkpt/extensions/power` in the GPX namespace, and `hr`/`cad` inside Garmin TrackPointExtension/v1. Recognition uses exact paths and namespace URIs, not literal prefixes or MIME alone. Unknown extensions are ignored in JSON but remain intact in original downloads. JSON is a selected coaching-data projection, not a lossless GPX serializer. Full point JSON can be large and contain coordinates: capture privately and reduce before sharing. Table output shows track/segment point and sensor counts, not every point.
+
+GPX parsing rejects malformed XML/numbers, duplicate recognized scalar fields, non-finite values, negative sensor values, invalid coordinates, DTD/entity declarations and unsupported encodings. Bounds are 100,000 points, 10,000 combined tracks/segments and XML depth 64; exceeding them fails without truncation. Points are never interpolated, carried forward, smoothed or silently zeroed. No distance, pauses, averages, sessions or physiological estimates are inferred.
+
+## Safe original downloads
+
+Choose an explicit path; filenames are never derived from an activity name or ID. Downloads default to FIT; original GPX requires `--file-format gpx` and a `.gpx` destination (case-insensitive). A format mismatch returns `unsupported_format`, never a renamed or converted file. The parent directory must already exist. FIT is streamed into a private temporary file beside the destination; GPX is buffered within the size bound and fully validated before its original bytes are written there. Publication occurs only after complete success and cannot clobber an existing target unless `--overwrite` is explicit; overwrites are atomic. Failure cleans up the temporary file and leaves the previous destination untouched. Output files are 0600. File bytes are never printed to stdout; GPX BOM bytes are preserved.
 
 Downloads require HTTPS, use a separate credential-free HTTP client, strip credentials/referrers on redirects, and limit redirect hops. API requests never follow redirects. Errors do not disclose passwords, bearer tokens, signed URLs, raw upstream bodies or source transport errors. Production endpoints are fixed; there is no public endpoint override or TLS bypass.
 
-Structural screening checks a 12/14-byte FIT header, `.FIT` signature, declared data length plus file-CRC byte bounds, and the 64 MiB limit. It rejects obvious HTML/XML, truncated or oversized data. **It does not verify CRCs, FIT record semantics, activity validity, sensor completeness or Garmin metrics.** Original bytes are not repaired, re-encoded or modified.
+FIT structural screening checks a 12/14-byte FIT header, `.FIT` signature, declared data length plus file-CRC byte bounds, and the 64 MiB limit. It rejects non-FIT, truncated or oversized data; recognized GPX receives a specific format-mismatch diagnostic. **It does not verify CRCs, FIT record semantics, activity validity, sensor completeness or Garmin metrics.** Explicit GPX downloads instead validate the complete supported GPX document. Original files are never repaired, re-encoded or modified.
 
 Download JSON success:
 
@@ -119,7 +128,7 @@ That is a **separate write to Garmin**, not a command executed by this CLI. Garm
 | Exit | Meaning | Example error codes |
 | --- | --- | --- |
 | 0 | Success, including empty lists and local missing-session status | — |
-| 1 | Transport, upstream, filesystem or malformed API response | `transport_error`, `rate_limited`, `upstream_error`, `invalid_fit`, `invalid_pagination`, `output_failed` |
+| 1 | Transport, upstream, filesystem or malformed API response | `transport_error`, `rate_limited`, `upstream_error`, `invalid_fit`, `invalid_gpx`, `unsupported_format`, `file_too_large`, `invalid_pagination`, `output_failed` |
 | 2 | Usage or malformed/insecure configuration | `usage_error`, `invalid_config` |
 | 3 | Credentials required or authentication rejected | `credentials_required`, `auth_required` |
 | 4 | Confirmed activity/file absence | `not_found`, `file_not_found` |

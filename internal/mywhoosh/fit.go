@@ -29,13 +29,6 @@ type FITSummary struct {
 	MaxCadenceRPM      *float64   `json:"max_cadence_rpm"`
 	CaloriesKcal       *float64   `json:"calories_kcal"`
 }
-type ActivityDetails struct {
-	ActivityID string       `json:"activity_id"`
-	Name       string       `json:"name"`
-	Source     string       `json:"source"`
-	Sessions   []FITSummary `json:"sessions"`
-	Laps       []FITSummary `json:"laps"`
-}
 
 func scaled(v uint64, invalid uint64, scale float64) *float64 {
 	if v == invalid {
@@ -98,18 +91,4 @@ func decodeFIT(ctx context.Context, data []byte) (ActivityDetails, error) {
 		return bad()
 	}
 	return c.result, nil
-}
-
-// Get retrieves and decodes the original FIT for an already-resolved activity.
-func (c *Client) Get(ctx context.Context, activity Activity) (ActivityDetails, error) {
-	var data bytes.Buffer
-	if _, err := c.Download(ctx, activity, &data); err != nil {
-		return ActivityDetails{}, err
-	}
-	result, err := decodeFIT(ctx, data.Bytes())
-	if err != nil {
-		return ActivityDetails{}, err
-	}
-	result.ActivityID, result.Name = activity.ID, activity.Name
-	return result, nil
 }

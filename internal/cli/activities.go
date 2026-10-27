@@ -74,7 +74,7 @@ func (a *app) activities(ctx context.Context, args []string) error {
 		return a.document(result)
 	}
 	w := tabwriter.NewWriter(a.out, 0, 4, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tSTARTED (UTC)\tNAME\tFIT")
+	fmt.Fprintln(w, "ID	STARTED (UTC)	NAME	FILE")
 	for _, activity := range result.Activities {
 		started := "—"
 		if activity.StartedAt != nil {

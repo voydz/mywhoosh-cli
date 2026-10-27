@@ -87,6 +87,32 @@ func (a *app) get(ctx context.Context, args []string) error {
 	}
 	w := tabwriter.NewWriter(a.out, 0, 4, 2, ' ', 0)
 	fmt.Fprintf(w, "activity_id\t%s\nname\t%s\nsource\t%s\n", tableText(detail.ActivityID), tableText(detail.Name), detail.Source)
+	if detail.Tracks != nil {
+		for i, track := range *detail.Tracks {
+			name := "—"
+			if track.Name != nil {
+				name = tableText(*track.Name)
+			}
+			fmt.Fprintf(w, "\nTrack %d	%s\n", i+1, name)
+			fmt.Fprintln(w, "segment	points	with power (W)	with HR (bpm)	with cadence (rpm)")
+			for j, segment := range track.Segments {
+				power, hr, cadence := 0, 0, 0
+				for _, point := range segment.Points {
+					if point.PowerWatts != nil {
+						power++
+					}
+					if point.HeartRateBPM != nil {
+						hr++
+					}
+					if point.CadenceRPM != nil {
+						cadence++
+					}
+				}
+				fmt.Fprintf(w, "%d	%d	%d	%d	%d\n", j+1, len(segment.Points), power, hr, cadence)
+			}
+		}
+		fmt.Fprintln(w, "\nUse --format json for recorded GPX point values; no session summaries are inferred.")
+	}
 	for i, s := range detail.Sessions {
 		fmt.Fprintf(w, "\nSession %d\n", i+1)
 		printFields(w, s)

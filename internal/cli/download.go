@@ -14,8 +14,9 @@ import (
 func (a *app) download(ctx context.Context, args []string) error {
 	f := flags("activities download")
 	var output string
-	f.StringVar(&output, "o", "", "destination FIT path")
-	f.StringVar(&output, "output", "", "destination FIT path")
+	f.StringVar(&output, "o", "", "destination original-file path")
+	f.StringVar(&output, "output", "", "destination original-file path")
+	fileFormat := f.String("file-format", "fit", "original file format: fit or gpx")
 	overwrite := f.Bool("overwrite", false, "replace destination atomically")
 	format := outputFormat(f)
 	// flag stops at a positional argument. Deliberately support the natural
@@ -33,6 +34,9 @@ func (a *app) download(ctx context.Context, args []string) error {
 		return usage()
 	}
 	if id == "" || output == "" || !validFormat(*format) {
+		return usage()
+	}
+	if (*fileFormat != "fit" && *fileFormat != "gpx") || (*fileFormat == "gpx" && !strings.EqualFold(filepath.Ext(output), ".gpx")) {
 		return usage()
 	}
 	path, err := filepath.Abs(output)
@@ -55,7 +59,7 @@ func (a *app) download(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	file, err := os.CreateTemp(filepath.Dir(path), ".mywhoosh-*.fit")
+	file, err := os.CreateTemp(filepath.Dir(path), ".mywhoosh-*."+*fileFormat)
 	if err != nil {
 		return outputError()
 	}
@@ -70,7 +74,7 @@ func (a *app) download(ctx context.Context, args []string) error {
 			return outputError()
 		}
 		var err error
-		size, err = a.client.Download(ctx, activity, file)
+		size, err = a.client.DownloadAs(ctx, activity, file, *fileFormat)
 		return err
 	})
 	if err != nil {
@@ -103,7 +107,7 @@ func (a *app) download(ctx context.Context, args []string) error {
 			Bytes      int64  `json:"bytes"`
 		}{id, path, size})
 	}
-	_, err = fmt.Fprintf(a.out, "Saved %d original FIT bytes to %s\n", size, tableText(path))
+	_, err = fmt.Fprintf(a.out, "Saved %d original %s bytes to %s\n", size, strings.ToUpper(*fileFormat), tableText(path))
 	return err
 }
 

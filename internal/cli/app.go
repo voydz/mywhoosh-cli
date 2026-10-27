@@ -15,7 +15,7 @@ import (
 	"github.com/voydz/mywhoosh-cli/internal/mywhoosh"
 )
 
-const help = `mywhoosh — read-only MyWhoosh coaching data and original FIT downloads
+const help = `mywhoosh — read-only MyWhoosh coaching data and original FIT/GPX downloads
 
 Usage: mywhoosh [--config-dir PATH] COMMAND
 
@@ -26,11 +26,12 @@ Usage: mywhoosh [--config-dir PATH] COMMAND
   profile [--format table|json]              Read the rider profile
   stats [--format table|json]                Read source-reported training totals
   activities [list] [--page N] [--limit N] [--format table|json]
-  activities get ID [--format table|json]    Read FIT session and lap summaries
-  activities download ID -o PATH [--overwrite] [--format table|json]
+  activities get ID [--format table|json]    Read recorded FIT summaries or GPX points
+  activities download ID -o PATH [--file-format fit|gpx] [--overwrite] [--format table|json]
   version
 
 Download accepts --output as an alias for -o. Root options precede commands.
+Downloads default to FIT; GPX requires --file-format gpx and a .gpx destination.
 Credentials: MYWHOOSH_EMAIL and MYWHOOSH_PASSWORD; no .env files are loaded.
 `
 

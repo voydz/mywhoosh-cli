@@ -51,6 +51,8 @@ func TestExecutable(t *testing.T) {
 		{"missing_profile_session", []string{"profile", "--format", "json"}, 3, "auth_required"},
 		{"missing_stats_session", []string{"stats", "--format", "json"}, 3, "auth_required"},
 		{"missing_get_session", []string{"activities", "get", "opaque-id", "--format", "json"}, 3, "auth_required"},
+		{"missing_gpx_session", []string{"activities", "download", "opaque-id", "--file-format", "gpx", "--output", filepath.Join(t.TempDir(), "ride.gpx")}, 3, "auth_required"},
+		{"invalid_gpx_suffix", []string{"activities", "download", "opaque-id", "--file-format", "gpx", "--output", "ride.fit"}, 2, "usage_error"},
 		{"local_status", []string{"status", "--format", "json"}, 0, `"session_present":false`},
 		{"invalid_format", []string{"activities", "--format", "csv"}, 2, "usage_error"},
 	} {

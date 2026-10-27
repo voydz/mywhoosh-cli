@@ -105,20 +105,22 @@ func (c *Client) PlayerData(ctx context.Context) (Profile, Stats, error) {
 		n := strings.TrimSpace(strings.Join(parts, " "))
 		name = &n
 	}
-	return Profile{
-			RiderID: c.Session.WhooshID, DisplayName: name, FTPWatts: personal.FTP,
-			HeightCM: profile.Height, WeightKG: profile.Weight,
-		}, Stats{
-			BestPower5SecondsWatts: personal.P5s, BestPower30SecondsWatts: personal.P30s,
-			BestPower1MinuteWatts: personal.P1, BestPower3MinutesWatts: personal.P3,
-			BestPower5MinutesWatts: personal.P5, BestPower12MinutesWatts: personal.P12,
-			BestPower20MinutesWatts: personal.P20, BestPower30MinutesWatts: personal.P30,
-			BestPower60MinutesWatts: personal.P60, MaxPowerWatts: personal.MaxPower,
-			MaxHeartRateBPM: personal.MaxHR, TotalDistanceKM: personal.Distance, WeeklyDistanceKM: personal.Week,
-			TotalRideTimeReported: personal.RideTime, TotalElevationReported: personal.Elevation,
-			TotalCaloriesBurnReported: personal.Calories, AveragePowerWatts: personal.AvgPower,
-			AverageHeartRateBPM: personal.AvgHR,
-		}, nil
+	rider := Profile{
+		RiderID: c.Session.WhooshID, DisplayName: name, FTPWatts: personal.FTP,
+		HeightCM: profile.Height, WeightKG: profile.Weight,
+	}
+	stats := Stats{
+		BestPower5SecondsWatts: personal.P5s, BestPower30SecondsWatts: personal.P30s,
+		BestPower1MinuteWatts: personal.P1, BestPower3MinutesWatts: personal.P3,
+		BestPower5MinutesWatts: personal.P5, BestPower12MinutesWatts: personal.P12,
+		BestPower20MinutesWatts: personal.P20, BestPower30MinutesWatts: personal.P30,
+		BestPower60MinutesWatts: personal.P60, MaxPowerWatts: personal.MaxPower,
+		MaxHeartRateBPM: personal.MaxHR, TotalDistanceKM: personal.Distance, WeeklyDistanceKM: personal.Week,
+		TotalRideTimeReported: personal.RideTime, TotalElevationReported: personal.Elevation,
+		TotalCaloriesBurnReported: personal.Calories, AveragePowerWatts: personal.AvgPower,
+		AverageHeartRateBPM: personal.AvgHR,
+	}
+	return rider, stats, nil
 }
 func object(raw json.RawMessage) bool {
 	var m map[string]json.RawMessage

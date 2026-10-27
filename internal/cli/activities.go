@@ -45,6 +45,9 @@ func (a *app) authorized(ctx context.Context, call func() error) error {
 }
 
 func (a *app) activities(ctx context.Context, args []string) error {
+	if len(args) != 0 && args[0] == "get" {
+		return a.get(ctx, args[1:])
+	}
 	if len(args) != 0 && args[0] == "download" {
 		return a.download(ctx, args[1:])
 	}

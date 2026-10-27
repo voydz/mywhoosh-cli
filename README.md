@@ -1,8 +1,8 @@
 # mywhoosh-cli
 
-A small standalone CLI for MyWhoosh: log in, list completed activities, and download an activity's **original FIT bytes**. One binary, one account, no Garmin credentials, background jobs, device spoofing or FIT rewriting.
+A small standalone CLI for MyWhoosh: read profile and training data, list completed activities, inspect FIT summaries, and download an activity's **original FIT bytes**. One binary, one account, no Garmin credentials, background jobs, device spoofing or FIT rewriting.
 
-> **Compatibility:** MyWhoosh has no public API. This implementation follows source-reviewed private endpoints and is tested against local TLS fixtures. Live login and a real activity download have **not** been verified: no MyWhoosh credentials were supplied. Upstream API changes may require an update. This project is not affiliated with MyWhoosh.
+> **Compatibility:** MyWhoosh has no public API. This implementation uses private endpoints and fixture tests; responses and availability may change without notice. This project is not affiliated with MyWhoosh.
 
 ## Install
 
@@ -28,8 +28,11 @@ go build -o mywhoosh ./cmd/mywhoosh
 mywhoosh login --email rider@example.com             # hidden terminal password
 mywhoosh status                                    # local presence, no request
 mywhoosh status --verify --format json              # online validity, no relogin
+mywhoosh profile --format json                      # source-reported rider profile
+mywhoosh stats --format json                        # source-reported training statistics
 mywhoosh activities                                 # one page, table
 mywhoosh activities --page 2 --limit 20 --format json
+mywhoosh activities get ACTIVITY_ID --format json   # recorded FIT sessions and laps
 mywhoosh activities download ACTIVITY_ID -o ride.fit
 mywhoosh activities download ACTIVITY_ID --output ride.fit --overwrite --format json
 mywhoosh logout                                    # local session removal only
@@ -51,7 +54,7 @@ mywhoosh login
 
 Email precedence: `--email`, then `MYWHOOSH_EMAIL`, then terminal prompt. Password precedence: `--password-stdin`, then `MYWHOOSH_PASSWORD`, then hidden terminal prompt. Missing noninteractive credentials fail immediately with exit 3. No `.env` file discovery or secret-file duplication is performed. Environment variables can still be visible to privileged processes; protect the injecting environment.
 
-Activity commands reuse a cached session. On API HTTP 401 they reauthenticate **at most once per command**, and only if **both** credential environment variables are present, then save the new session and retry once. They never prompt. There is no invented refresh-token endpoint, general retry loop, or permanent unattended-access guarantee. A rejected signed file URL does not trigger account reauthentication. Without injected credentials, expired sessions require another `mywhoosh login`. HTTP 429 and 5xx are failures, not empty lists.
+Profile, stats and activity commands reuse a cached session. On API HTTP 401 they reauthenticate **at most once per command**, and only if **both** credential environment variables are present, then save the new session and retry once. They never prompt. There is no invented refresh-token endpoint, general retry loop, or permanent unattended-access guarantee. A rejected signed file URL does not trigger account reauthentication. Without injected credentials, expired sessions require another `mywhoosh login`. HTTP 429 and 5xx are failures, not empty lists.
 
 ### Session storage
 
@@ -73,7 +76,17 @@ This is a **schema example**, not live account data. IDs remain strings, includi
 
 Known envelopes are a bare array, `data` array, and `data.results` array. Supported pagination indicators are `page`/`currentPage`/`current_page`, `totalPages`/`total_pages`, `hasNext`/`hasNextPage`, and `nextPage`. Contradictory metadata is an error, not permission to skip records. These are supported parser forms, not a claim that every current server returns them. Without metadata on a nonempty page, `pagination_known` is false and `next_page` is null: **that does not establish an end**. An empty page confirms an end.
 
-Download walks pages to resolve the **exact activity ID** to its distinct `activityFileId`. It stops on a confirmed end, rejects repeated/overlapping pages and inconsistent metadata, and searches at most 100 pages. Exhaustion returns exit 6 rather than falsely declaring absence. Activities without a file reference return exit 4.
+Download and `activities get` walk pages to resolve the **exact activity ID** to its distinct `activityFileId`. They stop on a confirmed end, reject repeated/overlapping pages and inconsistent metadata, and search at most 100 pages. Exhaustion returns exit 6 rather than falsely declaring absence. Activities without a file reference return exit 4.
+
+## Read-only coaching data
+
+`profile` and `stats` read the MyWhoosh player-data response using the existing session. The profile reports the opaque rider ID, display name, height in cm, weight in kg and configured MyWhoosh FTP in watts. FTP is the configured source value, not a calculation from best power or an external platform's FTP.
+
+Stats report source best-power durations and maximum power in watts, maximum heart rate in bpm, total and current-week distance in km, and source-reported average power/heart rate (the averaging period is not established). `total_ride_time_reported_unknown_unit`, `total_elevation_reported_unknown_unit`, and `total_calories_burn_reported_unknown_unit` preserve MyWhoosh's raw `TotalRideTime`, `TotalElevation`, and `TotalCaloriesBurn`; their units are not established here. Totals need not equal the sum of currently listed activities. Only selected coaching fields are exposed; the raw account response and unrelated personal fields are never printed.
+
+`activities get ID` retrieves the original FIT in memory and decodes its recorded session and lap messages. JSON includes `activity_id`, list-derived `name`, `source: "fit"`, and `sessions` and `laps` arrays. Fields carry their units: time in seconds, distance and ascent/descent in meters, power in watts, heart rate in bpm, cadence in rpm, and calories in kcal. Timer time excludes pauses; elapsed time includes them. Values come from the FIT messages, not activity-list approximations or derived physiological metrics. No per-record samples are emitted. Missing or FIT-invalid fields are JSON `null` (a dash in table output); actual zeros remain zero. Empty arrays mean no such messages were recorded. Fields may be unavailable even when an activity exists.
+
+Details enforce the 64 MiB file limit, validate FIT checksums and reject malformed input. Parsing is limited to one million messages and 10,000 combined sessions/laps; no temporary FIT file is written. `activities download` retains its separate structural-only screening and byte-exact output contract below.
 
 ## Safe original FIT downloads
 
@@ -123,9 +136,9 @@ go test -race ./...
 go build -o dist/mywhoosh ./cmd/mywhoosh
 ```
 
-CI runs the suite, race detector, vet, formatting checks, native builds and compiled executable smoke tests on Linux, macOS arm64 and macOS Intel. Tests use isolated temporary stores and local TLS servers, including request-body assertions, session reuse/recovery bounds, pagination, credential-safe redirects, atomic/no-clobber output and byte preservation. A fixture with a FIT-shaped header/length is used **only for structural screening**, never as evidence of semantic FIT validity. Test-only transport injection is not exposed by the shipping binary.
+CI runs the suite, race detector, vet, formatting checks, native builds and compiled executable smoke tests on Linux, macOS arm64 and macOS Intel. Tests use isolated temporary stores, synthetic FIT files and local HTTP fixtures, including request-body assertions, session reuse/recovery bounds, pagination, credential-safe redirects, atomic/no-clobber output, CRC validation and byte preservation. Test-only transport injection is not exposed by the shipping binary.
 
-The local review host does not need a project toolchain: builds and execution can run on GitHub Actions. Passing fixtures does **not** prove live MyWhoosh compatibility. A live pilot still requires authorized secure credentials, login, one real activity download and cached-session reuse; no personal FIT fixture belongs in this public repository.
+Passing fixtures does **not** prove ongoing live MyWhoosh compatibility; no personal FIT fixture belongs in this public repository.
 
 The source protocol/parser is adapted from MIT-licensed `iquesada/mywhoosh2garmin` at `e3575c37795a9849d443b827f91d6106e8aa9aae`; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). No Garmin integration or sync architecture was copied. Agent operation guidance is in [skills/mywhoosh/SKILL.md](skills/mywhoosh/SKILL.md).
 

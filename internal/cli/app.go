@@ -15,7 +15,7 @@ import (
 	"github.com/voydz/mywhoosh-cli/internal/mywhoosh"
 )
 
-const help = `mywhoosh — original MyWhoosh activity FIT downloads
+const help = `mywhoosh — read-only MyWhoosh coaching data and original FIT downloads
 
 Usage: mywhoosh [--config-dir PATH] COMMAND
 
@@ -23,7 +23,10 @@ Usage: mywhoosh [--config-dir PATH] COMMAND
   status [--verify] [--format table|json]     Local session status; optionally verify online
   logout                                    Remove the local session
   auth login|status|logout                   Equivalent grouped commands
+  profile [--format table|json]              Read the rider profile
+  stats [--format table|json]                Read source-reported training totals
   activities [list] [--page N] [--limit N] [--format table|json]
+  activities get ID [--format table|json]    Read FIT session and lap summaries
   activities download ID -o PATH [--overwrite] [--format table|json]
   version
 
@@ -105,6 +108,8 @@ func (a *app) execute(ctx context.Context, args []string) error {
 		}
 	}
 	switch args[0] {
+	case "profile", "stats":
+		return a.coaching(ctx, args[0], args[1:])
 	case "activities":
 		return a.activities(ctx, args[1:])
 	case "login":

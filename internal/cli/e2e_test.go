@@ -48,6 +48,9 @@ func TestExecutable(t *testing.T) {
 		{"password_argv", []string{"login", "--password", "must-not-appear"}, 2, "usage_error"},
 		{"missing_credentials", []string{"login"}, 3, "credentials_required"},
 		{"missing_session", []string{"activities", "--format", "json"}, 3, "auth_required"},
+		{"missing_profile_session", []string{"profile", "--format", "json"}, 3, "auth_required"},
+		{"missing_stats_session", []string{"stats", "--format", "json"}, 3, "auth_required"},
+		{"missing_get_session", []string{"activities", "get", "opaque-id", "--format", "json"}, 3, "auth_required"},
 		{"local_status", []string{"status", "--format", "json"}, 0, `"session_present":false`},
 		{"invalid_format", []string{"activities", "--format", "csv"}, 2, "usage_error"},
 	} {

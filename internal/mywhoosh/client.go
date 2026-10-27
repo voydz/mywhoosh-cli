@@ -19,6 +19,7 @@ import (
 
 const (
 	loginURL      = "https://services.mywhoosh.com/http-service/api/login"
+	playerDataURL = "https://services.mywhoosh.com/http-service/v1/player/player-data"
 	activitiesURL = "https://service14.mywhoosh.com/v2/rider/profile/activities"
 	downloadURL   = "https://service14.mywhoosh.com/v2/rider/profile/download-activity-file"
 )
@@ -29,6 +30,7 @@ type Client struct {
 	HTTP          *http.Client
 	DownloadHTTP  *http.Client
 	LoginURL      string
+	PlayerDataURL string
 	ActivitiesURL string
 	DownloadURL   string
 	Session       auth.Session
@@ -39,6 +41,7 @@ func New() *Client {
 		HTTP:          &http.Client{Timeout: 60 * time.Second},
 		DownloadHTTP:  &http.Client{Timeout: 120 * time.Second},
 		LoginURL:      loginURL,
+		PlayerDataURL: playerDataURL,
 		ActivitiesURL: activitiesURL,
 		DownloadURL:   downloadURL,
 	}
